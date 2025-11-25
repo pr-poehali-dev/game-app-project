@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
 
 type GameState = 'menu' | 'playing' | 'leaderboard' | 'profile';
@@ -24,6 +26,9 @@ interface LeaderboardEntry {
 
 export default function Index() {
   const [gameState, setGameState] = useState<GameState>('menu');
+  const [showNameDialog, setShowNameDialog] = useState(false);
+  const [tempName, setTempName] = useState('');
+  
   const [player, setPlayer] = useState<PlayerData>(() => {
     const saved = localStorage.getItem('playerData');
     return saved ? JSON.parse(saved) : {
@@ -39,6 +44,13 @@ export default function Index() {
   const [targetClicks, setTargetClicks] = useState(10);
   const [gameClicks, setGameClicks] = useState(0);
   const [combo, setCombo] = useState(0);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('playerData');
+    if (!saved) {
+      setShowNameDialog(true);
+    }
+  }, []);
 
   const leaderboard: LeaderboardEntry[] = [
     { name: 'CyberPro', score: 15420, level: 25 },
@@ -111,6 +123,29 @@ export default function Index() {
 
   const openVK = () => {
     window.open('https://vk.com/share.php?url=' + encodeURIComponent(window.location.href), '_blank');
+  };
+
+  const handleNameChange = () => {
+    if (tempName.trim().length < 2) {
+      toast({
+        title: "Ошибка",
+        description: "Никнейм должен содержать минимум 2 символа",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setPlayer(prev => ({ ...prev, name: tempName.trim() }));
+    setShowNameDialog(false);
+    toast({
+      title: "🎮 Добро пожаловать!",
+      description: `Привет, ${tempName.trim()}! Начинай игру!`,
+    });
+  };
+
+  const openEditName = () => {
+    setTempName(player.name);
+    setShowNameDialog(true);
   };
 
   if (gameState === 'playing') {
@@ -355,6 +390,17 @@ export default function Index() {
           </div>
 
           <div className="pt-4 space-y-2 border-t border-primary/20">
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-muted-foreground">Игрок</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={openEditName}
+                className="font-bold text-neon-pink hover:text-accent h-auto p-1"
+              >
+                {player.name} <Icon name="Pencil" size={14} className="ml-1" />
+              </Button>
+            </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Уровень</span>
               <span className="font-bold text-neon-purple">{player.level}</span>
@@ -366,6 +412,48 @@ export default function Index() {
           </div>
         </div>
       </Card>
+
+      <Dialog open={showNameDialog} onOpenChange={setShowNameDialog}>
+        <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-xl border-2 border-primary/30 neon-border">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold neon-glow text-center">
+              Введи свой никнейм
+            </DialogTitle>
+            <DialogDescription className="text-center text-muted-foreground">
+              Это имя будет отображаться в рейтинге игроков
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <Input
+              placeholder="Твой никнейм..."
+              value={tempName}
+              onChange={(e) => setTempName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleNameChange();
+                }
+              }}
+              maxLength={20}
+              className="text-center text-lg h-12 border-2 border-primary/30 focus:border-primary bg-background/50"
+              autoFocus
+            />
+            <p className="text-xs text-muted-foreground text-center">
+              От 2 до 20 символов
+            </p>
+          </div>
+
+          <DialogFooter className="sm:justify-center">
+            <Button
+              onClick={handleNameChange}
+              className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90 transition-all hover:scale-105 neon-border font-bold"
+            >
+              <Icon name="Check" size={20} className="mr-2" />
+              Сохранить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
