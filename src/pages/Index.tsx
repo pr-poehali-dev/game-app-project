@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
 
-type GameState = 'menu' | 'playing' | 'leaderboard' | 'profile';
+type GameState = 'menu' | 'playing' | 'leaderboard' | 'profile' | 'shop';
 
 interface PlayerData {
   name: string;
@@ -27,6 +27,8 @@ interface LeaderboardEntry {
 export default function Index() {
   const [gameState, setGameState] = useState<GameState>('menu');
   const [showNameDialog, setShowNameDialog] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [selectedPackage, setSelectedPackage] = useState<{levels: number, price: number} | null>(null);
   const [tempName, setTempName] = useState('');
   
   const [player, setPlayer] = useState<PlayerData>(() => {
@@ -147,6 +149,124 @@ export default function Index() {
     setTempName(player.name);
     setShowNameDialog(true);
   };
+
+  const levelPackages = [
+    { levels: 5, price: 199, popular: false },
+    { levels: 10, price: 349, popular: true },
+    { levels: 25, price: 799, popular: false },
+    { levels: 50, price: 1499, popular: false },
+  ];
+
+  const handleBuyLevels = (pkg: {levels: number, price: number}) => {
+    setSelectedPackage(pkg);
+    setShowPaymentDialog(true);
+  };
+
+  const processPayment = () => {
+    if (!selectedPackage) return;
+
+    toast({
+      title: "💳 Обработка платежа...",
+      description: "Переход на страницу оплаты",
+    });
+
+    const amount = selectedPackage.price;
+    const description = `Покупка ${selectedPackage.levels} уровней в Neon Clicker`;
+    const paymentUrl = `https://yoomoney.ru/quickpay/confirm?receiver=410011234567890&quickpay-form=shop&targets=${encodeURIComponent(description)}&paymentType=SB&sum=${amount}`;
+    
+    window.open(paymentUrl, '_blank');
+    setShowPaymentDialog(false);
+
+    setTimeout(() => {
+      const confirmPurchase = confirm(`Подтвердите покупку ${selectedPackage.levels} уровней. Оплата прошла успешно?`);
+      if (confirmPurchase) {
+        setPlayer(prev => ({
+          ...prev,
+          level: prev.level + selectedPackage.levels,
+          xpToNextLevel: Math.floor(prev.xpToNextLevel * Math.pow(1.5, selectedPackage.levels))
+        }));
+        toast({
+          title: "🎉 Покупка завершена!",
+          description: `+${selectedPackage.levels} уровней! Новый уровень: ${player.level + selectedPackage.levels}`,
+        });
+        setGameState('menu');
+      }
+    }, 2000);
+  };
+
+  if (gameState === 'shop') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-yellow-950/20 flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-yellow-500/20 via-transparent to-transparent"></div>
+        
+        <Card className="relative w-full max-w-md p-8 bg-card/80 backdrop-blur-xl border-2 border-yellow-500/30 neon-border">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setGameState('menu')}
+            className="absolute top-4 left-4 text-muted-foreground hover:text-foreground"
+          >
+            <Icon name="ArrowLeft" size={20} />
+          </Button>
+
+          <div className="space-y-6">
+            <div className="text-center space-y-2">
+              <h2 className="text-3xl font-bold text-yellow-400" style={{textShadow: '0 0 10px #fbbf24, 0 0 20px #fbbf24'}}>Магазин уровней</h2>
+              <p className="text-muted-foreground">Прокачайся мгновенно!</p>
+            </div>
+            
+            <div className="space-y-3">
+              {levelPackages.map((pkg, index) => (
+                <div
+                  key={index}
+                  className={`relative p-5 rounded-lg border-2 transition-all hover:scale-105 ${
+                    pkg.popular
+                      ? 'bg-primary/20 border-primary neon-border'
+                      : 'bg-muted/30 border-yellow-500/50'
+                  }`}
+                >
+                  {pkg.popular && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-primary rounded-full text-xs font-bold neon-border">
+                      🔥 ПОПУЛЯРНО
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-2xl font-bold text-yellow-400">+{pkg.levels} уровней</div>
+                      <div className="text-sm text-muted-foreground mt-1">Мгновенное повышение</div>
+                    </div>
+                    
+                    <Button
+                      onClick={() => handleBuyLevels(pkg)}
+                      className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:opacity-90 font-bold border-2 border-yellow-400/50"
+                    >
+                      {pkg.price} ₽
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-muted/30 rounded-lg p-4 space-y-2 text-sm text-muted-foreground">
+              <div className="flex items-start gap-2">
+                <Icon name="CheckCircle" size={16} className="mt-0.5 text-green-400" />
+                <span>Мгновенное зачисление уровней</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Icon name="CheckCircle" size={16} className="mt-0.5 text-green-400" />
+                <span>Безопасные платежи через ЮMoney</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Icon name="CheckCircle" size={16} className="mt-0.5 text-green-400" />
+                <span>Поддержка 24/7</span>
+              </div>
+            </div>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   if (gameState === 'playing') {
     return (
@@ -368,6 +488,15 @@ export default function Index() {
               </Button>
             </div>
 
+            <Button
+              onClick={() => setGameState('shop')}
+              className="w-full h-14 text-lg bg-gradient-to-r from-yellow-500 via-orange-500 to-yellow-500 hover:opacity-90 transition-all hover:scale-105 border-2 border-yellow-400/50 font-bold relative overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
+              <Icon name="ShoppingBag" size={24} className="mr-2" />
+              КУПИТЬ УРОВНИ 💎
+            </Button>
+
             <div className="grid grid-cols-2 gap-3">
               <Button
                 onClick={openVK}
@@ -412,6 +541,65 @@ export default function Index() {
           </div>
         </div>
       </Card>
+
+      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+        <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-xl border-2 border-yellow-500/30">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-center text-yellow-400" style={{textShadow: '0 0 10px #fbbf24'}}>
+              Подтверждение покупки
+            </DialogTitle>
+            <DialogDescription className="text-center text-muted-foreground">
+              Вы приобретаете уровни для своего персонажа
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedPackage && (
+            <div className="space-y-4 py-4">
+              <div className="bg-muted/50 rounded-lg p-6 space-y-3 border border-yellow-500/30">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Пакет:</span>
+                  <span className="text-xl font-bold text-yellow-400">+{selectedPackage.levels} уровней</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Текущий уровень:</span>
+                  <span className="font-bold">{player.level}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Новый уровень:</span>
+                  <span className="text-xl font-bold text-neon-cyan">{player.level + selectedPackage.levels}</span>
+                </div>
+                <div className="border-t border-muted pt-3 mt-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-semibold">Итого:</span>
+                    <span className="text-2xl font-bold text-yellow-400">{selectedPackage.price} ₽</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-xs text-center text-muted-foreground">
+                Вы будете перенаправлены на страницу оплаты ЮMoney
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="sm:justify-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowPaymentDialog(false)}
+              className="flex-1"
+            >
+              Отмена
+            </Button>
+            <Button
+              onClick={processPayment}
+              className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-500 hover:opacity-90 font-bold"
+            >
+              <Icon name="CreditCard" size={20} className="mr-2" />
+              Оплатить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showNameDialog} onOpenChange={setShowNameDialog}>
         <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-xl border-2 border-primary/30 neon-border">
